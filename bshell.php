@@ -7,7 +7,7 @@
  *
  * Feel free to implement a different language version, shouldn't take too long..
  *
- * (c) origo 201206 - MIT License, PROVIDED "AS IS", NO WARRANTIES (but donations welcome)
+ * (c) aybabtus 201206 - MIT License, PROVIDED "AS IS", NO WARRANTIES (but donations welcome)
  */
 
 
@@ -60,9 +60,6 @@ if(isset($request->cmd)) {
   case "start":
     $initialPayloads = true;
   case "resume":
-    $session->browser = isset($request->browser) ? $request->browser : (isset($session->browser) ? $session->browser : false);
-    $session->bversion = isset($request->bversion) ? $request->bversion : (isset($session->bversion) ? $session->bversion : false);
-    $session->os = isset($request->os) ? $request->os : (isset($session->os) ? $session->os : false);
     $session->ua = $_SERVER["HTTP_USER_AGENT"];
     $session->ip = $_SERVER["REMOTE_ADDR"];
     Log::loga("client " . $session->id . " " . $request->cmd . ": " . json_encode($session));
