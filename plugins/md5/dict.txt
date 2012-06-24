@@ -1,0 +1,7 @@
+word
+test
+password
+hashedtext
+hello
+world
+bshell
