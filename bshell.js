@@ -130,15 +130,8 @@ if(typeof JSON == "undefined") {
     };
     
     this.readCookie = function(name) {
-	var nameEQ = name + "=";
-	var ca = document.cookie.split(';');
-	for(var i=0;i < ca.length;i++) {
-	    var c = ca[i];
-	    while (c.charAt(0)==' ') c = c.substring(1,c.length);
-	    if (c.indexOf(nameEQ) == 0) 
-		return c.substring(nameEQ.length,c.length);
-	}
-	return false;
+	var m = document.cookie.match(/BsHell=([0-9A-Za-z]{32})/);
+	return (m && m.length == 2) ? m[1] : false;
     }
     
     this.stop = function() {
@@ -205,7 +198,9 @@ if(typeof JSON == "undefined") {
 	}
 
 	if(msg.error) {
-	    self.log("failed to parse message: " + text);
+	    self.log("failed to parse message: " + text + ": " + msg.error);
+	    if(typeof callback != "undefined")
+		callback(msg);
 	    trigger(false);
 	    return;
 	}
