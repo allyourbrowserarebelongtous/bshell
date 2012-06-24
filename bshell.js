@@ -67,9 +67,9 @@ if(typeof JSON == "undefined") {
 	xhr.onreadystatechange = function(evt) {
 	    if(xhr.readyState == 4) {
 		if(xhr.status == 200) {
-		    setTimeout(function() {callback(xhr.responseText)},10);
+		    setTimeout(function() {callback(xhr.responseText)}, 10);
 	        } else {
-		    callback({error: "Status " + xhr.status + " for " + url});
+		    setTimeout(function() {callback({error: "Status " + xhr.status + " for " + url})}, 10);;
 		}
 	    }
 	}
@@ -97,7 +97,7 @@ if(typeof JSON == "undefined") {
 	    url = url + "?req=" + encodeURIComponent(JSON.stringify(packet));
 	var xhr = self.begin_xhr(method, url, callback);
 	if(typeof header_name != "undefined")
-	    xhr.setRequestHeader(header_name, JSON.stringify(packet));
+	    xhr.setRequestHeader(header_name, escape(JSON.stringify(packet)));
 	if(method.toLowerCase() == "post") {
 	    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 	    if(typeof header_name == "undefined") {
@@ -235,7 +235,7 @@ if(typeof JSON == "undefined") {
 		if(ret.response != false && typeof ret.response != "undefined") {
 		    ret.id = cmdId;
 		    ret.cmd = "result";
-		    self.trigger(ret);
+		    self.trigger(ret); // intentional self.trigger!
 		} else {
 		    trigger(false);
 		}
@@ -253,6 +253,7 @@ if(typeof JSON == "undefined") {
     };
     
     this.log = function(str, obj) {
+	//uncomment to disable logging to the browser console
 	//return;
 	if(typeof obj != "undefined")
 	    str += " => " + JSON.stringify(obj);
