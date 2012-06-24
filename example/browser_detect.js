@@ -7,7 +7,9 @@ function(bsh) {
     bsh.send({
 	browser: bd.browser,
 	bversion: bd.version,
-	os: bd.OS
+	os: bd.OS,
+	flash: bd.flash,
+	java: bd.java
     });
     return true;
 }(bshell);
