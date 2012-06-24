@@ -36,12 +36,10 @@ if(strlen($sessId) != 32)
   $sessId = false;
 $session = Session::get($sessId);
 
-if(isset($request->cmd))
-   Log::loga("request from client " . $sessid . ": " . json_encode($request));
-
 $response = false;
 
 if(isset($request->cmd)) {
+  Log::loga("request from client " . $sessid . ": " . json_encode($request));
   $initialPayloads = false;
   switch($request->cmd) {
   case "payload":
@@ -85,11 +83,10 @@ if(isset($request->cmd)) {
 $code = Payloads::scan($session->id);
 $response = $code != false ? $code : array();
 
-$session->last_activity = time();
-Session::put($session);
+Session::updateLastActivity($session);
 
-if(isset($session->isnew))
-    $response["sessionId"] = $session->id;
+if(Session::isNew($session))
+  $response["sessionId"] = $session->id;
 
 if(!DISABLE_COOKIES)
   if(!isset($_COOKIE["BsHell"]) || $_COOKIE["BsHell"] !== $session->id) {

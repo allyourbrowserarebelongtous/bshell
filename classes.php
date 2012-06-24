@@ -26,6 +26,17 @@ class Session
     return $session;
   }
 
+  function updateLastActivity($session)
+  {
+    $session->last_activity = time();
+    Session::put($session);
+  }
+
+  function isNew($session)
+  {
+    return isset($session->isnew);
+  }
+
   function create_session()
   {
     $sessId = md5(rand().time().rand().microtime().rand());
