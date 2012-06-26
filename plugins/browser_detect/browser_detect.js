@@ -1,6 +1,5 @@
 function(bshell) {
     bshell.register_plugin('browser_detect', function(bshell) {
-	debugger;
 	var self = this;
 	self.bshell = bshell;
 	this.init = function () {
