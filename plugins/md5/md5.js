@@ -21,6 +21,13 @@ function(bsh) {
 	    self.dictionary=[];
 	};
 
+	self.init = function() {
+	}
+
+	self.isLibraryLoaded = function() {
+	    return typeof hex_md5 == "function";
+	};
+
 	self.loadDictionary = function(url) {
 	    var xhr = self.bshell.begin_xhr("GET", url, function(data) {
 		var response = false;
@@ -37,7 +44,7 @@ function(bsh) {
 
 	self.testHash = function(hex_hash, background,delay) {
 	    if(typeof background == "undefined")
-		bacground = false;
+		background = false;
 	    if(typeof delay == "undefined")
 		delay = 500;
 	    setTimeout(function() {
