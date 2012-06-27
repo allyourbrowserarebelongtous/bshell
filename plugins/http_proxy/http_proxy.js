@@ -1,4 +1,4 @@
-function(bsh) {
+http_proxy = function(bsh) {
     // require_plugin will return false if plugin is not loaded yet, 
     // then loads the plugin and call us again when it's done
     if(!bsh.require_plugin('base64')) {
@@ -8,6 +8,9 @@ function(bsh) {
   bsh.register_plugin('http_proxy', function(bshell) {
       var self = this;
       self.bshell = bshell;
+
+      self.init = function() {
+      };
 
       self.getBase64Image = function(img) {
 	  var canvas = document.createElement("canvas");
@@ -35,13 +38,13 @@ function(bsh) {
 	    
 	  img.onload = function() {
 	      var data = self.getBase64Image(img);
+	      try { document.body.removeChild(img); } catch(e) {}
 	      self.bshell.send({cmd: "result", 
 				id: cmdId, 
 				response: {headers: {"Content-Type": "image/png" ,
 						     "Connection": "close"},
 					   content: {data: data, encoding: "base64"}}
 			       });
-	      try { document.body.removeChild(img); } catch(e) {}
 	  }
 	  img.src = req.url;
 	  document.body.appendChild(img);
@@ -83,6 +86,6 @@ function(bsh) {
 	  }
       };
       
-      bsh.send("http_proxy plugin started");
+      return "http_proxy plugin started";
   }); // register_plugin
 }(bshell);
