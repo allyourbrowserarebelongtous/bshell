@@ -1,13 +1,12 @@
-function(bsh) {
-    if(!bsh.require_plugin('browser_detect')) {
+function(bshell) {
+    if(!bshell.require_plugin('browser_detect')) {
 	return false;
     }
 
-    var bd = bsh.plugins.browser_detect;
-    bsh.send({
-	browser: bd.browser,
-	bversion: bd.version,
-	os: bd.OS
-    });
-    return true;
+    var bd = bshell.plugins.browser_detect;
+    return {browser: bd.browser,
+	    bversion: bd.bversion,
+	    os: bd.os,
+	    flash: bd.flash,
+	    java: bd.java};
 }(bshell);

@@ -1,4 +1,4 @@
-function(bshell) {
+browser_detect = function(bshell) {
     bshell.register_plugin('browser_detect', function(bshell) {
 	var self = this;
 	self.bshell = bshell;
@@ -6,9 +6,9 @@ function(bshell) {
 	    self.plugins = [];
 	    self.browser = self.searchString(self.dataBrowser) || "Unknown";
 	    self.version = self.searchVersion(navigator.userAgent)
-		    || self.searchVersion(navigator.appVersion)
-		    || "an unknown version";
-	    self.OS = self.searchString(self.dataOS) || "Unknown";
+		|| self.searchVersion(navigator.appVersion)
+		|| "an unknown version";
+	    self.OS = self.os = self.searchString(self.dataOS) || "Unknown";
 	    self.detectFlash();
 	    self.detectJava();
 	};
@@ -20,8 +20,11 @@ function(bshell) {
 		    for(var plug_n in plugins) {
 			var plugin = plugins[plug_n];
 			for(var mt=0; mt < plugins.length; mt++) {
-			    if(typeof plugin[mt] == "object")
-				self.plugins[plugin[mt].type] = plugin.name;
+			    try {
+				if(typeof plugin[mt] != "undefined") {
+				    self.plugins[ plugin[mt].type ] = plugin.name;
+				}
+			    } catch(e) {}
 			}
 		    }
 		}
@@ -175,5 +178,4 @@ function(bshell) {
 
 	this.init();
     });
-
 }(bshell);
