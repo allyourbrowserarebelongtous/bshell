@@ -1,9 +1,13 @@
 
-function(bsh){
+base64_plugin = function(bsh){
     bsh.register_plugin('base64', function(bshell) {
 	var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 	var self = this;
 	self.bshell = bshell;
+
+	this.init = function() {
+	};
+
 	this.encode = function(input) {
 	    //input = escape(input);
 	    var output = "";
