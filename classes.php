@@ -1,5 +1,43 @@
 <?php
 
+class DirUtil
+{
+  function list_dir($dir, $start=0, $count=10, $read_files=false, $json_decode=false)
+  {
+    $results=array();
+    $dh = opendir($dir);
+    if(!$dh) {
+      Log::loga("DirUtil: Could not open dir $dir ? ");
+      return $results;
+    }
+    while(($de = readdir($dh)) && $count>0) {
+      if($de == "." || $de == "..") {
+	continue;
+      }
+      if(!is_file($dir . DIRECTORY_SEPARATOR . $de)) {
+	continue;
+      }
+      if($start-- > 0) {
+	continue;
+      }
+
+      if($read_files) {
+	$file= $dir . DIRECTORY_SEPARATOR . $de;
+	if($json_decode)
+	  $results[] = json_decode(file_get_contents($file));
+	else
+	  $results[] = file_get_contents($file);
+      }
+      else
+	$results[] = $de;
+      
+      $count-- < 0;
+    }
+    closedir($dh);
+    return $results;
+  }
+}
+
 class Log
 {
   function loga($str) {
@@ -94,6 +132,10 @@ class Session
     return $session;
   }
 
+  function list_sessions($start=0, $count=10) 
+  {
+    return DirUtil::list_dir("sessions", $start, $count, true, true);
+  }
 }
 
 
@@ -203,6 +245,10 @@ class Payloads
     }
   }
 
+  function list_payloads($start=0, $count=10) 
+  {
+    return DirUtil::list_dir("payloads", $start, $count, true, true);
+  }
 
 }
 
@@ -299,5 +345,8 @@ class Request
     return $response;
   }
 }
+
+// TODO: Plugins::load ?
+include_once("plugins/admin/plugin_admin.php");
 
 ?>
